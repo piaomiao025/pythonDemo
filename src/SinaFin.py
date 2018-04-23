@@ -96,12 +96,30 @@ def crawl(url):
     if not isEx:
         os.makedirs(path)
 
+
+    tags = soup.find_all('meta', attrs={'name':'tags'})
+    keywords = soup.find_all('meta', attrs={'name':'keywords'})
+    descriptions = soup.find_all('meta', attrs={'name':'description'})
+    if tags:
+        tags = tags[0]['content']
+    if keywords:
+        keywords = keywords[0]['content']
+    if descriptions:
+        descriptions = descriptions[0]['content']
+
     for imgs in soup.find_all("div", class_="img_wrapper"):
         for img in imgs.find_all("img"):
             # print(img.get("src"))
             save_image(path, img.get("src"))
     fpath = os.path.join(path, title + '.txt')
     with open(fpath, 'w') as f:
+        if tags:
+            f.write("tags:" + tags.encode("utf-8") + "\n")
+        if keywords:
+            f.write("keywords:" + keywords.encode("utf-8") + "\n")
+        if descriptions:
+            f.write("descriptions:" + descriptions.encode("utf-8") + "\n")
+        f.write("url:" + url + "\n")
         for p_cons in soup.find_all("div", id="artibody"):
             for p_con in p_cons.find_all("p"):
                 spans = p_con.find_all("span")
@@ -121,19 +139,15 @@ def crawl_home(url):
     page = resp.content
     soup = BeautifulSoup(page, 'lxml', from_encoding='utf-8')
     # print(soup.prettify())
-    # return
-    # for link in soup.select('a[href*="doc-"]'):
-    #     href = link.get("href")
-    #     print href
-    #     if href in url_set:
-    #         continue
-    #     crawl(link.get("href"))
-    #     url_set.add(href)
+    url_set = set()
+    for link in soup.select('a[href*="doc-"]'):
+        href = link.get("href")
+        # print href
+        url_set.add(href)
 
     # 另外一部分信息需要通过接口获取
     # http://feed.mix.sina.com.cn/api/roll/get?pageid=434&lid=2666&num=10&versionNumber=1.2.4&page=2&encode=utf-8&_=1524216930272
     data = get_data()
-    url_set = set()
     params['page'] = 1
     url_set.update(get_doc_url(data))
     if data:
@@ -154,10 +168,13 @@ def crawl_home(url):
             params['page'] = i + 2
             url_set.update(get_doc_url(get_data()))
             i = i + 1
+    i = 1
+    lengh = str(len(url_set))
     for link_url in url_set:
-        print(link_url)
+        print(str(i) + "/" + lengh + ": " + link_url)
         time.sleep(1)
         crawl(link_url)
+        i = i + 1
 
 def get_data():
     params['_'] = time.time()
