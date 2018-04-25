@@ -22,14 +22,23 @@ headers = {
     'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36'
 }
-url = "http://finance.sina.com.cn/blockchain/coin/2018-04-23/doc-ifzqvvrz9385640.shtml"
-# url = "http://www.runoob.com/mongodb/mongodb-connections.html"
-resp = requests.get(url, headers=headers)
-soup = BeautifulSoup(resp.content, "lxml")
-tags = soup.find_all('meta', attrs={'name':'tags'})
-keywords = soup.find_all('meta', attrs={'name':'keywords'})
-description = soup.find_all('meta', attrs={'name':'description'})
-if tags:
-    print("tags:" + tags[0]['content'])
-if keywords:
-    print("keywords:" + keywords[0]['content'])
+# url = "http://finance.sina.com.cn/blockchain/coin/2018-04-23/doc-ifzqvvrz9385640.shtml"
+# # url = "http://www.runoob.com/mongodb/mongodb-connections.html"
+# resp = requests.get(url, headers=headers)
+# soup = BeautifulSoup(resp.content, "lxml")
+# tags = soup.find_all('meta', attrs={'name':'tags'})
+# keywords = soup.find_all('meta', attrs={'name':'keywords'})
+# description = soup.find_all('meta', attrs={'name':'description'})
+# if tags:
+#     print("tags:" + tags[0]['content'])
+# if keywords:
+#     print("keywords:" + keywords[0]['content'])
+
+
+path = "123"
+isEx = os.path.exists(path)
+if not isEx:
+    os.makedirs(path)
+fpath = os.path.join(path, "123.txt")
+with open(fpath, 'a') as f:
+    f.write("abc123123")
