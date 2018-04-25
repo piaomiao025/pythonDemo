@@ -170,11 +170,21 @@ def crawl_home(url):
             i = i + 1
     i = 1
     lengh = str(len(url_set))
-    for link_url in url_set:
-        print(str(i) + "/" + lengh + ": " + link_url)
-        time.sleep(1)
-        crawl(link_url)
-        i = i + 1
+    path = "download"
+    isEx = os.path.exists(path)
+    if not isEx:
+        os.makedirs(path)
+    fpath = os.path.join(path, "passed.txt")
+    with open(fpath, "w") as f:
+        for link_url in url_set:
+            print(str(i) + "/" + lengh + ": " + link_url)
+            time.sleep(1)
+            crawl(link_url)
+            f.write(link_url + "\n")
+            i = i + 1
+            if i % 20 == 0:
+                f.flush()
+    f.close()
 
 def get_data():
     params['_'] = time.time()
