@@ -11,22 +11,23 @@ headers = {
     "origin": "https://www.jinse.com",
     "referer": "https://www.jinse.com/lives",
     'Connection': 'close',
+    'verify': 'False',
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36",
     "cookie": 'userId=eyJpdiI6Ik9CWmNBVzNmQ1wvbUpjTnNnU1ZCMU13PT0iLCJ2YWx1ZSI6Ik9uS3FPckRLSkJ6RGJaalwvdFQ4MGlkZzZhN3VZa3VSa3JiQmNMWjVyc05ybGViT1VPK093WXpDUmdaVVZaVW50TWxiYUZ0UWY2NlZCRWlNSlRJSXdFdz09IiwibWFjIjoiNWY2YjI4YTZhOTQ1MzY5MWVmNDNmNTAzYmFjN2M0NWMzODQ3NzI4NzdkYTU1NjE2ZDgzZDY4M2Q3M2UyMGUzZCJ9; is_refresh=eyJpdiI6Imx6a3hNaWxna3kyaWVxR0ZDbHV5TUE9PSIsInZhbHVlIjoiVVhpdGQ2anc4ampBTDlMTUdZaHR3UT09IiwibWFjIjoiMTZhNjcxYmM2NjViNmY4YWJhZTNlOWIwZWQ4MDhmMjdmN2E1NDMyMjg1NTIyZDc3OGYzODhiZTcwYTJhMmEyMCJ9; _ga=GA1.2.1878962000.1524537538; _gid=GA1.2.1748138735.1524537538; Hm_lvt_3b668291b682e6dc69686a3e2445e11d=1524537539; Hm_lpvt_3b668291b682e6dc69686a3e2445e11d=1524537823'
 }
 params = {
-    "limit": 20,
+    "limit": 20
 }
 
-lasttop = 24732
-lastbottom = 172
+# lasttop = 24732
+# lastbottom = 172
 
-def save_file(list):
-    if not list:
+def save_file(list_data, lastbottom, lasttop):
+    if not list_data:
         return
 
     path = "jinsecaijing"
-    for date_info in list:
+    for date_info in list_data:
         date = date_info['date']
         if not path:
             continue
@@ -52,28 +53,29 @@ def save_file(list):
         print("完成一次保存！" + fpath)
 
 
-def crawl_all(url, lastbottom):
+def crawl_all(url, lastbottom, lasttop):
     if lastbottom > 0:
         params['flag'] = 'down'
         params['id'] = lastbottom
 
     s = requests.session()
+    s.keep_alive = False
     resp = s.get(url, params=params, headers=headers).content
     s.close()
     if resp == 'Too Many Attempts.':
         time.sleep(60)
-        crawl_all(url)
+        crawl_all(url, lastbottom, lasttop)
     data = json.loads(resp)
     if data:
         count = data['count']
         botrom_id = data["bottom_id"]
-        list = data["list"]
+        list_data = data["list"]
 
         if count <= 0:
             print("no news")
             return
 
-        save_file(list)
+        save_file(list_data, lastbottom, lasttop)
 
         lastbottom = botrom_id
 
@@ -90,77 +92,91 @@ def crawl_all(url, lastbottom):
             if data:
                 count = data['count']
                 botrom_id = data["bottom_id"]
-                list = data["list"]
+                list_data = data["list"]
 
                 if count <= 0:
                     print("no news")
                     break
-                save_file(list)
+                save_file(list_data, lastbottom, lasttop)
                 lastbottom = botrom_id
                 time.sleep(3)
+
+def send_request(url, params, header):
+    s = requests.session()
+    s.keep_alive = False
+    try:
+        resp = s.get(url, params=params, headers=headers, verify=False).content
+        data = json.loads(resp)
+    except BaseException:
+        data = None
+    s.close();
+    return data
 
 def crawl_latest(url, lastbottom, lasttop):
     # if lastbottom > 0:
     #     params['flag'] = 'down'
     #     params['id'] = lastbottom
 
-    s = requests.session()
-    resp = s.get(url, params=params, headers=headers).content
-    s.close()
-    if resp == 'Too Many Attempts.':
+    global params
+    params = {"limit": 20}
+    # if resp == 'Too Many Attempts.':
+    #     time.sleep(60)
+    data = send_request(url, params, headers)
+
+    if not data:
+        # 线程暂停60s，等待服务端解封
         time.sleep(60)
-        crawl_latest(url)
-    data = json.loads(resp)
-    if data:
+        return
+
+    count = data['count']
+    bottom_id = data["bottom_id"]
+    top_id = data['top_id']
+    list_data = data["list"]
+
+    if count <= 0:
+        print("no news")
+        return
+
+    if not ((bottom_id in range(lastbottom, lasttop + 1) and top_id > lasttop) or (bottom_id >= lasttop)):
+        print("no news found, exit..\n")
+        return
+
+    print("found latest news....downloading..\n")
+
+    save_file(list_data, lastbottom, lasttop)
+
+    # 保存latesttopid到文件中
+    fpath = os.path.join('jinsecaijing', 'latest.txt')
+    with open(fpath, 'w') as f:
+        f.write(str(lastbottom) + "|" + str(top_id))
+    f.close()
+
+    # 没有最新页，不需要继续爬取，退出
+    if bottom_id <= lasttop:
+        print("downloading end, exit..\n")
+
+    tmp_bottom = bottom_id
+    while bottom_id > lasttop:
+        params['flag'] = 'down'
+        params['id'] = tmp_bottom
+        s = requests.session()
+        s.keep_alive = False
+        data = send_request(url, params, headers)
+        if data is None:
+            # 线程暂停60s，等待解封
+            time.sleep(60)
+            continue
         count = data['count']
         bottom_id = data["bottom_id"]
-        top_id = data['top_id']
-        list = data["list"]
+        list_data = data["list"]
 
         if count <= 0:
             print("no news")
-            return
-
-        if not ((bottom_id in range(lastbottom, lasttop + 1) and top_id > lasttop) or (bottom_id >= lasttop)):
-            print("no news found, exit..\n")
-            return
-
-        print("found latest news....downloading..\n")
-
-        save_file(list)
-
-        # 保存latesttopid到文件中
-        fpath = os.path.join('jinsecaijing', 'latest.txt')
-        with open(fpath, 'w') as f:
-            f.write(str(lastbottom) + "|" + str(top_id))
-        f.close()
-
-        # 没有最新页，不需要继续爬取，退出
-        if bottom_id <= lasttop:
-            print("downloading end, exit..\n")
-
+            break
+        save_file(list_data, lastbottom, lasttop)
         tmp_bottom = bottom_id
-        while bottom_id > lasttop:
-            params['flag'] = 'down'
-            params['id'] = tmp_bottom
-            s = requests.session()
-            resp = s.get(url, params=params, headers=headers).content
-            s.close()
-            if resp == 'Too Many Attempts.':
-                time.sleep(60)
-                continue
-            data = json.loads(resp)
-            if data:
-                count = data['count']
-                bottom_id = data["bottom_id"]
-                list = data["list"]
-
-                if count <= 0:
-                    print("no news")
-                    break
-                save_file(list)
-                tmp_bottom = bottom_id
-                time.sleep(3)
+        # 暂停3s，避免太频繁被封
+        time.sleep(5)
 
 def start_crawl():
     url = "https://api.jinse.com/v4/live/list"
@@ -184,8 +200,8 @@ def start_crawl():
 if __name__ == '__main__':
     i = 1
     while i > 0:
-        print("start crawling...." + str(i) + "\n")
+        print("start crawling...." + str(i) + "..." + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + "\n")
         start_crawl()
-        print("end crawling...." + str(i) + "\n")
+        print("end crawling...." + str(i) + "..." + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + "\n")
         i = i + 1
         time.sleep(30)
